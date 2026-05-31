@@ -1,0 +1,54 @@
+name: MLflow Model Training CI
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'MLProject/**'
+      - 'heart_preprocessing.csv'
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  train-model:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas numpy scikit-learn mlflow
+    
+    - name: Run MLflow Project
+      run: |
+        cd MLProject
+        mlflow run . -P n_estimators=100 -P max_depth=10
+    
+    - name: Upload MLflow artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: mlflow-artifacts
+        path: |
+          MLProject/mlruns/
+          MLProject/*.csv
+          MLProject/*.txt
+    
+    - name: Save model to GitHub Release (Skilled)
+      if: github.event_name == 'push'
+      run: |
+        # Compress model artifacts
+        zip -r model_artifacts.zip MLProject/mlruns/
+        
+        # Upload to GitHub Release (create if not exists)
+        gh release upload "model-v$(date +'%Y%m%d-%H%M%S')" model_artifacts.zip --clobber
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
