@@ -25,7 +25,8 @@ jobs:
     
     - name: Run MLflow Project
       run: |
-        mlflow run MLProject/ --no-conda -P n_estimators=100 -P max_depth=10
+        cd MLProject
+        mlflow run . --env-manager=local
     
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
