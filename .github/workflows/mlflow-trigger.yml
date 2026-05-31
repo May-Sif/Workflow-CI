@@ -3,12 +3,7 @@ name: MLflow Model Training CI
 on:
   push:
     branches: [ main, master ]
-    paths:
-      - 'MLProject/**'
-      - 'heart_preprocessing.csv'
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:  # Manual trigger
+  workflow_dispatch:
 
 jobs:
   train-model:
@@ -16,44 +11,25 @@ jobs:
     
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4      # ← UPDATE ke v4
+      uses: actions/checkout@v4
       
     - name: Setup Python
-      uses: actions/setup-python@v5  # ← UPDATE ke v5
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
     
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pandas numpy scikit-learn mlflow
+        pip install mlflow
     
-    - name: Train model (direct python, not mlflow run)
+    - name: Run MLflow Project (FIXED)
       run: |
-        cd MLProject
-        python modelling.py --n_estimators 100 --max_depth 10 --test_size 0.2 --random_state 42
+        mlflow run MLProject/ --no-conda -P n_estimators=100 -P max_depth=10
     
     - name: Upload MLflow artifacts
       uses: actions/upload-artifact@v4
       with:
         name: mlflow-artifacts
-        path: |
-          MLProject/mlruns/
-          MLProject/*.csv
-          MLProject/*.txt
-          MLProject/*.pkl
+        path: MLProject/mlruns/
         retention-days: 7
-    
-    - name: Save model to GitHub Release (Skilled)
-      if: github.event_name == 'push'
-      run: |
-        # Compress model artifacts
-        cd MLProject
-        zip -r ../model_artifacts.zip mlruns/ model.pkl metrics.txt 2>/dev/null || echo "Some files may not exist"
-        cd ..
-        
-        # Create tag and release
-        TAG_NAME="model-$(date +'%Y%m%d-%H%M%S')"
-        gh release create "$TAG_NAME" model_artifacts.zip --title "Model Release $TAG_NAME" --notes "Auto-generated from workflow" || echo "Release may already exist"
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
